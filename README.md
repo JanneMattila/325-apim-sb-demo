@@ -3,6 +3,15 @@
 This demo tries to illustrate the use of Azure API Management, Azure Relay and Hybrid Connections for
 connecting to your on-premises Web Service API.
 
+Same as ascii graphics:
+
+```batch
+      /------\     /-------\    /-------\    /---------\
+User  | API  |     | AZURE |    | HC    |    | Web     |
+  =>  | MGMT |  => | RELAY | => | PROXY | => | Service |
+      \------/     \-------/    \-------/    \---------/
+```
+
 Steps to implement the demo:
 
 1. Create Azure API Management using portal
