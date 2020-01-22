@@ -31,7 +31,7 @@ Clone Azure Relay repository to your machine
 
 Open `Microsoft.Azure.Relay.ReverseProxy.sln` underneath folder `azure-relay/samples/hybrid-connections/dotnet/hcreverseproxy/`.
 
-Create new "ASP.NET Web Application (.NET Framework)" project. Add new "Web Service (ASMX)" file to the project.
+Create new "*ASP.NET Web Application (.NET Framework)*" project. Add new "*Web Service (ASMX)*" file to the project.
 
 Place following code to it:
 
