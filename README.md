@@ -57,7 +57,7 @@ namespace DemoWebApp
 ```
 
 Add required named values for APIM by setting `apimSender` for `accessKeyName` and access key of that into `accessKey`.
-Create new API to APIM and place following policy to it (from [API Policy snippets](https://github.com/Azure/api-management-policy-snippets/blob/master/examples/Generate%20Azure%20Relay%20Token.policy.xml)):
+Create new API and `backend` to APIM and place following policy to it (from [API Policy snippets](https://github.com/Azure/api-management-policy-snippets/blob/master/examples/Generate%20Azure%20Relay%20Token.policy.xml)):
 
 ```xml
 <policies>
@@ -111,11 +111,13 @@ Create new API to APIM and place following policy to it (from [API Policy snippe
 </policies>
 ```
 
+Create `POST` operation named `GetProducts` to the `backend` API.
+
 Run this project and take note of the web service url e.g. `http://localhost:2811/WebService1.asmx`.
 This means that the url for the `GetProducts` is `http://localhost:2811/WebService1.asmx/GetProducts`.
 
 Edit project `Microsoft.Azure.Relay.ReverseProxy` properties and update the Debug parameters
-to match your Azure Relay information for `intraListener`.
+to match your Azure Relay information for `intraListener`. Example: `Endpoint=sb://<your-relay-name-here>.servicebus.windows.net/;SharedAccessKeyName=intraListener;SharedAccessKey=SGFoISBZb3UgZm91bmQgbXkgZWFzdGVyIGVnZyA6RA==;EntityPath=apim http://localhost:2811/webservice1.asmx/`.
 
 Use Visual Studio Code with [REST Client](https://marketplace.visualstudio.com/items?itemName=humao.rest-client) extension.
 Here's example code:
