@@ -211,8 +211,8 @@ Connection: close
 </ArrayOfProduct>
 ```
 
-Note: If you want to convert that content to json, then you can use policy
-to do that as well. Here's example policy:
+**Note**: If you want to convert that content to json, then you can use policy
+to do that as well. Here's example policy (see also [API Management transformation policies](https://docs.microsoft.com/en-us/azure/api-management/api-management-transformation-policies) for more details):
 
 ```xml
 <policies>
