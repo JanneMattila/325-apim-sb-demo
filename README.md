@@ -31,6 +31,26 @@ Clone Azure Relay repository to your machine
 
 Open `Microsoft.Azure.Relay.ReverseProxy.sln` underneath folder `azure-relay/samples/hybrid-connections/dotnet/hcreverseproxy/`.
 
+**Note**: Above example is _not_ Production grade implementation and it lacks
+exception handling and offline connection handling logic. You should enhance that
+to fit your needs. For example you should add `Offline` handler implementation:
+
+```csharp
+public HybridConnectionReverseProxy(string connectionString, Uri targetUri)
+{
+  this.listener = new HybridConnectionListener(connectionString);
+  
+  // Add Offline event handler
+  this.listener.Offline += Listener_Offline;
+  // ...
+}
+
+private void Listener_Offline(object sender, EventArgs e)
+{
+    Console.WriteLine("Listener Offline. Do something smart 😉.");
+}
+```
+
 Create new "*ASP.NET Web Application (.NET Framework)*" project. Add new "*Web Service (ASMX)*" file to the project.
 
 Place following code to it:
@@ -123,6 +143,23 @@ Create new API and `backend` to APIM and place following policy to it (from [API
 </policies>
 ```
 
+**Note**: If you plan to expose multiple endpoint using the same relay from
+APIM then you need to make sure that you create separate tokens for that
+connection. Otherwise you will get error like this:
+
+`HttpStatusCode: 401, Code: TokenMissingOrInvalid, Message: InvalidAudience: The authorization header contains a token with a wrong audience`
+
+Here's example that you create token per endpoint (just having own names and own caches are enough):
+
+```xml
+<!-- clipped -->
+        <cache-lookup-value key="@("relaytoken1")" variable-name="relaytoken1" />
+<!-- clipped -->
+        <choose>
+            <!-- If there is no key stored in cache -->
+            <when condition="@(!context.Variables.ContainsKey("relaytoken1"))">
+```
+
 Create `POST` operation named `GetProducts` to the `backend` API.
 
 Run this project and take note of the web service url e.g. `http://localhost:2811/WebService1.asmx`.
@@ -172,4 +209,117 @@ Connection: close
   </Product>
   ...
 </ArrayOfProduct>
+```
+
+Note: If you want to convert that content to json, then you can use policy
+to do that as well. Here's example policy:
+
+```xml
+<policies>
+  <inbound>
+    <base />
+    <rewrite-uri template="/WebService1.asmx" copy-unmatched-params="false" />
+    <set-header name="SOAPAction" exists-action="override">
+      <value>"http://tempuri.org/GetProducts"</value>
+    </set-header>
+    <set-body template="liquid">
+      <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns="http://tempuri.org/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+        <soap:Body>
+          <GetProducts>
+          </GetProducts>
+        </soap:Body>
+      </soap:Envelope>
+    </set-body>
+    <set-header name="Content-Type" exists-action="override">
+      <value>text/xml</value>
+    </set-header>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <choose>
+      <when condition="@(context.Response.StatusCode < 400)">
+        <set-body template="liquid">
+          {
+            "getProductsResponse": {
+             "GetProductsResult": [
+              {% JSONArrayFor item in body.envelope.body.GetProductsResponse.GetProductsResult -%}
+               {
+                "iD" : {{item.ID}},
+                "name" : "{{item.Name}}"
+               }
+              {% endJSONArrayFor -%}
+             ]
+            }
+          }
+        </set-body>
+      </when>
+      <otherwise>
+        <set-variable name="old-body" value="@(context.Response.Body.As<string>(preserveContent: true))" />
+        <!-- Error response as per https://github.com/Microsoft/api-guidelines/blob/master/Guidelines.md#7102-error-condition-responses -->
+        <set-body template="liquid">
+        {
+         "error": {
+          "code": "{{body.envelope.body.fault.faultcode}}",
+           "message": "{{body.envelope.body.fault.faultstring}}"
+         }
+        }
+        </set-body>
+        <choose>
+          <when condition="@(string.IsNullOrEmpty(context.Response.Body.As<JObject>(preserveContent: true)["error"]["code"].ToString()) && string.IsNullOrEmpty(context.Response.Body.As<JObject>(preserveContent: true)["error"]["message"].ToString()))">
+            <set-body>@{
+              var newResponseBody = new JObject();
+              newResponseBody["error"] = new JObject();
+              newResponseBody["error"]["code"] = "InvalidErrorResponseBody";
+              if (string.IsNullOrEmpty((string)context.Variables["old-body"]))
+              {
+                newResponseBody["error"]["message"] = "The error response body was not a valid SOAP error response. The response body was empty.";
+              }
+              else
+              {
+                newResponseBody["error"]["message"] = "The error response body was not a valid SOAP error response. The response body was: '" + context.Variables["old-body"] + "'.";
+              }
+              return newResponseBody.ToString();
+            }
+            </set-body>
+          </when>
+        </choose>
+      </otherwise>
+    </choose>
+    <set-header name="Content-Type" exists-action="override">
+      <value>application/json</value>
+    </set-header>
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
+```
+
+Output from that response would be then in json format:
+
+```http
+HTTP/1.1 200 OK
+Cache-Control: max-age=0, private
+Transfer-Encoding: chunked
+Via: 1.1 <your-relay-name-here>.servicebus.windows.net
+Content-Type: application/json
+Strict-Transport-Security: max-age=31536000
+X-AspNet-Version: 4.0.30319
+X-Powered-By: ASP.NET
+Request-Context: appId=cid-v1:03fb3907-8c9d-41bb-910d-d0431618e65f
+Date: Wed, 22 Jan 2020 19:27:44 GMT
+Connection: close
+
+{
+  "getProductsResponse": [
+    {
+      "id": "1",
+      "name": "AAA",
+    }
+    ...
+  ]
+}
 ```
