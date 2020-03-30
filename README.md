@@ -55,7 +55,7 @@ Create new "*ASP.NET Web Application (.NET Framework)*" project. Add new "*Web S
 
 Place following code to it:
 
-```charp
+```csharp
 using System.Collections.Generic;
 using System.Web.Services;
 
